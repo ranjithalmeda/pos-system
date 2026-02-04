@@ -16,4 +16,7 @@ const productSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-module.exports = mongoose.model("Product", productSchema);
+// Fix OverwriteModelError by checking if model already exists
+const Product = mongoose.models.Product || mongoose.model("Product", productSchema);
+
+module.exports = Product;

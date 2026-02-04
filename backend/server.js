@@ -4,6 +4,9 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const productRoutes = require("./routes/productRoutes");
+const saleRoutes = require("./routes/saleRoutes");
+
+
 
 // 2️⃣ Config
 dotenv.config(); // load .env variables
@@ -23,6 +26,7 @@ app.use(express.json()); // parse JSON requests
 app.get("/", (req, res) => res.send("Hello, World!"));
 app.get("/api/test", (req, res) => res.json({ message: "API is working!" }));
 app.use("/api/products", productRoutes); // Product CRUD routes
+app.use("/api/sales", saleRoutes); // Sales routes
 
 // 6️⃣ MongoDB connection
 mongoose.connect(process.env.MONGO_URI)
