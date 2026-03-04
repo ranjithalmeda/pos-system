@@ -5,7 +5,6 @@ import {
   updateProduct,
   deleteProduct,
 } from "./api/productApi";
-import axios from "axios";
 import { createSale } from "./api/saleApi";
 
 function App() {
@@ -20,7 +19,7 @@ function App() {
 
   const [cart, setCart] = useState([]);
 
-  // Fetch products on load
+  // Fetch products
   useEffect(() => {
     fetchProducts();
   }, []);
@@ -61,18 +60,25 @@ function App() {
     try {
       await deleteProduct(id);
       fetchProducts();
-      // Remove deleted product from cart if exists
       setCart(cart.filter((item) => item._id !== id));
     } catch (error) {
       console.error("Error deleting product:", error);
     }
   };
 
-  // Cart logic
+  // ---------------- CART LOGIC ----------------
+
   const addToCart = (product) => {
+    if (product.quantity === 0) return;
+
     const existing = cart.find((item) => item._id === product._id);
 
     if (existing) {
+      if (existing.quantity >= product.quantity) {
+        alert("Not enough stock available!");
+        return;
+      }
+
       setCart(
         cart.map((item) =>
           item._id === product._id
@@ -85,40 +91,33 @@ function App() {
     }
   };
 
+  const removeFromCart = (id) => {
+    setCart(cart.filter((item) => item._id !== id));
+  };
+
   const cartTotal = cart.reduce(
     (total, item) => total + item.price * item.quantity,
     0
   );
 
-  // -------------------- CHECKOUT --------------------
+  // ---------------- CHECKOUT ----------------
+
   const handleCheckout = async () => {
-    if (cart.length === 0) return;
+    if (cart.length === 0) return alert("Cart is empty!");
 
     try {
-      // Save sale
-      await axios.post("http://localhost:5000/api/sales", {
-        items: cart,
-        total: cartTotal,
-        date: new Date(),
-      });
-
-      // Update stock for each product
-      for (const item of cart) {
-        const product = products.find((p) => p._id === item._id);
-        const newQty = product.quantity - item.quantity;
-        await updateProduct(item._id, { ...product, quantity: newQty });
-      }
-
-      // Clear cart and refresh products
+      await createSale(cart);
+      alert("Checkout successful!");
       setCart([]);
       fetchProducts();
-      alert("Checkout successful!");
     } catch (error) {
-      console.error("Checkout error:", error);
+      console.error(error);
+      alert(error.response?.data?.message || "Checkout failed!");
     }
   };
 
-  // -------------------- UI --------------------
+  // ---------------- UI ----------------
+
   return (
     <div className="min-h-screen bg-gray-100 p-6">
       <h1 className="text-2xl font-bold mb-4">POS System</h1>
@@ -202,10 +201,15 @@ function App() {
                 </button>
 
                 <button
-                  className="bg-green-600 text-white px-3 py-1 rounded"
+                  disabled={p.quantity === 0}
+                  className={`px-3 py-1 rounded ${
+                    p.quantity === 0
+                      ? "bg-gray-400"
+                      : "bg-green-600 text-white"
+                  }`}
                   onClick={() => addToCart(p)}
                 >
-                  Add to Cart
+                  {p.quantity === 0 ? "Out of Stock" : "Add to Cart"}
                 </button>
               </td>
             </tr>
@@ -213,106 +217,95 @@ function App() {
         </tbody>
       </table>
 
-            {/* ---------- CART ---------- */}
-        <div className="bg-white p-4 rounded shadow">
-          <h2 className="text-xl font-bold mb-4">Cart</h2>
+      {/* CART */}
+      <div className="bg-white p-4 rounded shadow">
+        <h2 className="text-xl font-bold mb-4">Cart</h2>
 
-          {cart.length === 0 ? (
-            <p className="text-gray-500">Cart is empty</p>
-          ) : (
-            <>
-              <table className="w-full mb-4">
-                <thead>
-                  <tr className="border-b">
-                    <th className="p-2 text-left">Name</th>
-                    <th className="p-2 text-left">Price</th>
-                    <th className="p-2 text-left">Qty</th>
-                    <th className="p-2 text-left">Total</th>
-                    <th className="p-2 text-left">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cart.map((item) => (
+        {cart.length === 0 ? (
+          <p className="text-gray-500">Cart is empty</p>
+        ) : (
+          <>
+            <table className="w-full mb-4">
+              <thead>
+                <tr className="border-b">
+                  <th className="p-2 text-left">Name</th>
+                  <th className="p-2 text-left">Price</th>
+                  <th className="p-2 text-left">Qty</th>
+                  <th className="p-2 text-left">Total</th>
+                  <th className="p-2 text-left">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cart.map((item) => {
+                  const product = products.find(
+                    (p) => p._id === item._id
+                  );
+
+                  return (
                     <tr key={item._id} className="border-t">
                       <td className="p-2">{item.name}</td>
                       <td className="p-2">{item.price}</td>
-                      <td className="p-2">{item.quantity}</td>
-                      <td className="p-2">{item.price * item.quantity}</td>
-                      <td className="p-2 flex gap-2">
-                        <button
-                          className="bg-gray-300 px-2 rounded"
-                          onClick={() => {
-                            setCart(
-                              cart.map((c) =>
-                                c._id === item._id && c.quantity > 1
-                                  ? { ...c, quantity: c.quantity - 1 }
-                                  : c
-                              )
-                            );
-                          }}
-                        >
-                          −
-                        </button>
-                        <button
-                          className="bg-gray-300 px-2 rounded"
-                          onClick={() => {
+
+                      {/* ✅ DIRECT INPUT QUANTITY */}
+                      <td className="p-2">
+                        <input
+                          type="number"
+                          min="1"
+                          max={product?.quantity}
+                          value={item.quantity}
+                          onChange={(e) => {
+                            const value = Number(e.target.value);
+
+                            if (value <= 0) return;
+
+                            if (value > product.quantity) {
+                              alert("Not enough stock available!");
+                              return;
+                            }
+
                             setCart(
                               cart.map((c) =>
                                 c._id === item._id
-                                  ? { ...c, quantity: c.quantity + 1 }
+                                  ? { ...c, quantity: value }
                                   : c
                               )
                             );
                           }}
-                        >
-                          +
-                        </button>
+                          className="border p-1 w-16 text-center"
+                        />
+                      </td>
+
+                      <td className="p-2">
+                        {item.price * item.quantity}
+                      </td>
+
+                      <td className="p-2">
                         <button
                           className="bg-red-600 text-white px-2 rounded"
-                          onClick={() =>
-                            setCart(cart.filter((c) => c._id !== item._id))
-                          }
+                          onClick={() => removeFromCart(item._id)}
                         >
                           Remove
                         </button>
-                        <button
-                            className="mt-4 bg-blue-600 text-white px-4 py-2 rounded"
-                            onClick={async () => {
-                              if (cart.length === 0) return alert("Cart is empty!");
-
-                              try {
-                                await createSale(cart);
-                                alert("Checkout successful!");
-                                setCart([]); // clear cart
-                                fetchProducts(); // update product stock
-                              } catch (error) {
-                                console.error(error);
-                                alert("Checkout failed!");
-                              }
-                            }}
-                          >
-                            Checkout
-                          </button>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  );
+                })}
+              </tbody>
+            </table>
 
-              <h3 className="text-lg font-bold">
-                Grand Total: Rs. {cart.reduce((total, item) => total + item.price * item.quantity, 0)}
-              </h3>
+            <h3 className="text-lg font-bold">
+              Grand Total: Rs. {cartTotal}
+            </h3>
 
-              <button
-                className="mt-4 bg-blue-600 text-white px-4 py-2 rounded"
-                onClick={() => alert("Checkout functionality coming next!")}
-              >
-                Checkout
-              </button>
-            </>
-          )}
-        </div>
-
+            <button
+              className="mt-4 bg-blue-600 text-white px-4 py-2 rounded"
+              onClick={handleCheckout}
+            >
+              Checkout
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }

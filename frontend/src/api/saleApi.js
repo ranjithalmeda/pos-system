@@ -1,5 +1,9 @@
 import axios from "axios";
 
-const API = axios.create({ baseURL: "http://localhost:5000/api" });
+const API = axios.create({
+  baseURL: "http://localhost:5000/api",
+});
 
-export const  createSale = (cart) => API.post("/sales", { cart });
+export const createSale = (cart) => {
+  return API.post("/sales", { cart });
+};
