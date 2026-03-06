@@ -1,9 +1,11 @@
 import axios from "axios";
 
-const API = axios.create({
-  baseURL: "http://localhost:5000/api",
-});
+const API_URL = "http://localhost:5000/api/sales";
 
-export const createSale = (cart) => {
-  return API.post("/sales", { cart });
+export const createSale = async (cart) => {
+  return axios.post(API_URL, { items: cart });
+};
+
+export const getSales = async () => {
+  return axios.get(API_URL);
 };

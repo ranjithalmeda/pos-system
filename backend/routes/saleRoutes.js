@@ -1,10 +1,11 @@
 const express = require("express");
 const router = express.Router();
+
 const Sale = require("../models/saleModel");
 const Product = require("../models/product");
 
 
-// ✅ GET /api/sales => get all sales
+// ✅ GET all sales
 router.get("/", async (req, res) => {
   try {
     const sales = await Sale.find().sort({ createdAt: -1 });
@@ -16,22 +17,20 @@ router.get("/", async (req, res) => {
 });
 
 
-// ✅ POST /api/sales => record a sale
+// ✅ POST record a sale
 router.post("/", async (req, res) => {
   try {
-    const { cart } = req.body;
+    const { items } = req.body;
 
-    if (!cart || cart.length === 0)
+    if (!items || items.length === 0)
       return res.status(400).json({ message: "Cart is empty" });
 
-    // Calculate total
-    const total = cart.reduce(
+    const total = items.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0
     );
 
-    // Reduce stock safely
-    for (const item of cart) {
+    for (const item of items) {
       const product = await Product.findById(item._id);
 
       if (!product) {
@@ -48,9 +47,8 @@ router.post("/", async (req, res) => {
       await product.save();
     }
 
-    // Create sale record
     const sale = new Sale({
-      products: cart.map((p) => ({
+      products: items.map((p) => ({
         productId: p._id,
         name: p.name,
         price: p.price,
@@ -60,12 +58,16 @@ router.post("/", async (req, res) => {
     });
 
     await sale.save();
+    console.log("Sale saved:", sale);
 
     res.status(201).json({ message: "Sale recorded successfully", sale });
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
   }
 });
 
+
+// ✅ EXPORT ROUTER (VERY IMPORTANT)
 module.exports = router;

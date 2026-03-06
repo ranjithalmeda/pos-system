@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 
 const saleSchema = mongoose.Schema(
     {
-        Products: [
+        products: [
             { 
                 productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
                 name: String,
@@ -12,7 +12,7 @@ const saleSchema = mongoose.Schema(
             },
         ],
         total: { type: Number, required: true },
-        createAt: { type: Date, default: Date.now },
+        createdAt: { type: Date, default: Date.now },
     },
     { timestamps: true }
 );
